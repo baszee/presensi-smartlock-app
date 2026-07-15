@@ -1,16 +1,15 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../utils/app_logger.dart';
 
-/// Class ini bertugas bikin dan mengatur satu instance Dio
-/// yang dipakai di seluruh aplikasi untuk request ke backend.
 class DioClient {
   late final Dio dio;
+  final FlutterSecureStorage secureStorage;
 
-  // Sementara base URL di-hardcode dulu (sesuai keputusan ADR: flavor
-  // system belum diimplementasi). Nanti tinggal ganti sesuai info dari backend.
-  static const String baseUrl = 'http://10.10.118.215:8000/api/v1';
+  // 🔴 PASTIKAN URL INI MILIK POSTMAN MOCK SERVER-MU!
+  static const String baseUrl = 'https://68b8e6dd-1738-4a8a-a25e-9dbec037fe1e.mock.pstmn.io/api/v1';
 
-  DioClient() {
+  DioClient(this.secureStorage) {
     dio = Dio(
       BaseOptions(
         baseUrl: baseUrl,
@@ -18,33 +17,44 @@ class DioClient {
         receiveTimeout: const Duration(seconds: 10),
         headers: {
           'Accept': 'application/json',
+          'Content-Type': 'application/json',
         },
       ),
     );
 
-    // Tambahin interceptor sederhana buat logging request/response.
-    // Ini akan ngeprint tiap request yang dikirim dan response yang diterima
-    // ke console, biar gampang debug.
-    dio.interceptors.add(
+    dio.interceptors.addAll([
+      // 1. AUTH INTERCEPTOR: Otomatis menyuntikkan Bearer Token
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          if (!options.path.contains('/auth/login')) {
+            final token = await secureStorage.read(key: 'access_token');
+            if (token != null) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+          }
+          return handler.next(options);
+        },
+      ),
+
+      // 🛑 BLOK MOCK INTERCEPTOR (isMockMode) SUDAH DIHAPUS DARI SINI 🛑
+
+      // 2. LOGGING INTERCEPTOR: Untuk mempermudah debug di console
       InterceptorsWrapper(
         onRequest: (options, handler) {
           appLogger.i('➡️ REQUEST[${options.method}] => ${options.uri}');
+          if (options.data != null) appLogger.d('Body: ${options.data}');
           return handler.next(options);
         },
         onResponse: (response, handler) {
-          appLogger.i(
-            'RESPONSE[${response.statusCode}] => ${response.requestOptions.uri}',
-          );
+          appLogger.i('✅ RESPONSE[${response.statusCode}] => ${response.requestOptions.uri}');
           return handler.next(response);
         },
         onError: (DioException e, handler) {
-          appLogger.e(
-            'ERROR[${e.response?.statusCode}] => ${e.requestOptions.uri}',
-            error: e,
-          );
+          appLogger.e('❌ ERROR[${e.response?.statusCode}] => ${e.requestOptions.uri}', error: e);
+          if (e.response?.data != null) appLogger.e('Error Data: ${e.response?.data}');
           return handler.next(e);
         },
       ),
-    );
+    ]);
   }
 }

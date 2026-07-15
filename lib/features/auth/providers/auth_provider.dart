@@ -1,13 +1,45 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../shared/models/user_role.dart';
+import '../data/auth_repository.dart';
 
-/// SEMENTARA: role di-hardcode di sini dulu, karena Login belum dibuat.
-/// Nanti setelah Login jadi, provider ini akan membaca role dari hasil
-/// login user yang sebenarnya (misal dari token/response API),
-/// bukan nilai tetap seperti sekarang.
-///
-/// Ganti nilai di bawah ini secara manual untuk mencoba tampilan
-/// Dosen vs Mahasiswa selama development.
-final currentUserRoleProvider = Provider<UserRole>((ref) {
-  return UserRole.mahasiswa; // ganti ke UserRole.dosen untuk coba tampilan Dosen
+// 1. Definisikan State (Kondisi)
+enum AuthStatus { initial, loading, success, error }
+
+class AuthState {
+  final AuthStatus status;
+  final String? errorMessage;
+
+  AuthState({required this.status, this.errorMessage});
+
+  factory AuthState.initial() => AuthState(status: AuthStatus.initial);
+  factory AuthState.loading() => AuthState(status: AuthStatus.loading);
+  factory AuthState.success() => AuthState(status: AuthStatus.success);
+  factory AuthState.error(String message) => AuthState(status: AuthStatus.error, errorMessage: message);
+}
+
+// 2. Buat Notifier pengontrol state
+class AuthNotifier extends StateNotifier<AuthState> {
+  final AuthRepository _repository;
+
+  AuthNotifier(this._repository) : super(AuthState.initial());
+
+  Future<void> login(String email, String password) async {
+    state = AuthState.loading(); // UI berubah jadi muter-muter (loading)
+    try {
+      await _repository.login(email, password);
+      state = AuthState.success(); // UI otomatis pindah halaman
+    } catch (e) {
+      state = AuthState.error(e.toString()); // UI nampilin snackbar error
+    }
+  }
+
+  Future<void> logout() async {
+    await _repository.logout();
+    state = AuthState.initial();
+  }
+}
+
+// 3. Daftarkan ke Riverpod
+final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return AuthNotifier(repository);
 });
