@@ -1,29 +1,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/jadwal_model.dart';
 import '../data/jadwal_repository.dart';
-import '../data/dummy_jadwal_repository.dart';
 
-final jadwalRepositoryProvider = Provider<JadwalRepository>((ref) {
-  return DummyJadwalRepository();
-});
-
-/// Provider ini menyimpan hari mana yang lagi dipilih di tab.
-/// 1 = Senin, 2 = Selasa, ... 7 = Minggu (sesuai ERD: hari int)
-/// Default-nya kita isi hari ini (disesuaikan biar match angka ERD).
+// 1. Provider untuk menyimpan status hari apa yang di-klik user (Default: Hari ini)
 final selectedHariProvider = StateProvider<int>((ref) {
-  final today = DateTime.now().weekday; // 1 = Senin ... 7 = Minggu
-  return today;
+  int hariIni = DateTime.now().weekday;
+  // Karena tab UI cuma Senin(1) - Jumat(5), kalau Sabtu/Minggu, paksa ke Senin
+  if (hariIni > 5) hariIni = 1;
+  return hariIni;
 });
 
-/// Provider untuk mengambil SEMUA jadwal (dipakai di Jadwal screen,
-/// nanti difilter per hari di UI).
+// 2. Provider untuk mengambil SEMUA JADWAL dari API
 final semuaJadwalProvider = FutureProvider<List<Jadwal>>((ref) async {
   final repository = ref.watch(jadwalRepositoryProvider);
-  return repository.getSemuaJadwal();
+  return repository.getJadwal();
 });
 
-/// Provider khusus Home screen: jadwal hari ini saja.
+// 3. Provider KHUSUS untuk HOME SCREEN (hanya menampilkan jadwal hari ini)
 final jadwalHariIniProvider = FutureProvider<List<Jadwal>>((ref) async {
-  final repository = ref.watch(jadwalRepositoryProvider);
-  return repository.getJadwalHariIni();
+  final semuaJadwal = await ref.watch(semuaJadwalProvider.future);
+  final hariIni = DateTime.now().weekday;
+
+  // Filter cuma yang harinya sama dengan hari ini
+  return semuaJadwal.where((jadwal) => jadwal.hari == hariIni).toList();
 });

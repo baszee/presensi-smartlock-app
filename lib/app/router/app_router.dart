@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
-import '../../features/dashboard/presentation/screens/home_screen.dart';
+
+// Kita import MainShell, bukan HomeScreen
+import '../main_shell.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -13,7 +15,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/home',
-        builder: (context, state) => const HomeScreen(),
+        // Ubah builder ini untuk memanggil MainShell
+        builder: (context, state) => const MainShell(),
       ),
     ],
   );
