@@ -4,6 +4,7 @@ class UserProfile {
   final String email;
   final String programStudi;
   final String role;
+  final String angkatan; // Tambahan baru
 
   UserProfile({
     required this.namaLengkap,
@@ -11,6 +12,7 @@ class UserProfile {
     required this.email,
     required this.programStudi,
     required this.role,
+    required this.angkatan,
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
@@ -19,8 +21,8 @@ class UserProfile {
       nim: json['nim'] ?? '-',
       email: json['email'] ?? '-',
       programStudi: json['program_studi'] ?? '-',
-      // Kita tebak role dari email jika backend tidak mengirim role
-      role: json['role'] ?? (json['email'].toString().contains('dosen') ? 'dosen' : 'mahasiswa'),
+      role: json['role'] ?? 'mahasiswa',
+      angkatan: json['angkatan']?.toString() ?? '-', // Ambil data angkatan
     );
   }
 }
