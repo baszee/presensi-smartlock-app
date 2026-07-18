@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Tambahan import untuk storage
 
 // Sesuaikan path import ini jika letak auth_provider.dart milikmu berbeda
 import '../../providers/auth_provider.dart';
@@ -15,10 +16,22 @@ class LoginScreen extends ConsumerWidget {
     // Dengarkan perubahan status Auth secara reaktif
     ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.status == AuthStatus.success) {
-        // Jika login berhasil, lempar ke rute /home
-        context.go('/home');
+        // Bungkus dengan anonymous async function agar bisa await baca storage
+        () async {
+          const storage = FlutterSecureStorage();
+          final role = await storage.read(key: 'user_role');
+
+          if (context.mounted) {
+            // Gerbang tol: Lempar sesuai role
+            if (role == 'dosen') {
+              context.go('/lecturer/home');
+            } else {
+              context.go('/home');
+            }
+          }
+        }();
       } else if (next.status == AuthStatus.error) {
-        // Jika login gagal, tampilkan Snackbar pesan error dari Laravel
+        // Jika login gagal, tampilkan Snackbar pesan error
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.errorMessage ?? 'Login Gagal'),

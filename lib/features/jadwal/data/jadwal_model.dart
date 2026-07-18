@@ -18,17 +18,22 @@ class Jadwal {
   });
 
   factory Jadwal.fromJson(Map<String, dynamic> json) {
-
     // 2. Logika konversi teks "Senin" menjadi angka 1, "Selasa" jadi 2, dst.
     // Supaya filter tab harimu di UI tetap berjalan normal.
     int parsedHari = DateTime.now().weekday;
     if (json['hari'] != null) {
       final hariString = json['hari'].toString().toLowerCase();
-      if (hariString == 'senin') parsedHari = 1;
-      else if (hariString == 'selasa') parsedHari = 2;
-      else if (hariString == 'rabu') parsedHari = 3;
-      else if (hariString == 'kamis') parsedHari = 4;
-      else if (hariString == 'jumat') parsedHari = 5;
+      if (hariString == 'senin') {
+        parsedHari = 1;
+      } else if (hariString == 'selasa') {
+        parsedHari = 2;
+      } else if (hariString == 'rabu') {
+        parsedHari = 3;
+      } else if (hariString == 'kamis') {
+        parsedHari = 4;
+      } else if (hariString == 'jumat') {
+        parsedHari = 5;
+      }
     }
 
     return Jadwal(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/network/dio_provider.dart';
 import '../../../core/utils/app_logger.dart';
+import 'auth_model.dart'; // <-- Import ini sekarang akan menyala/terang!
 
 class AuthRepository {
   final Dio _dio;
@@ -18,28 +19,37 @@ class AuthRepository {
           'email': email,
           'password': password,
         },
+        // TAMBAHKAN OPTIONS INI UNTUK TRIK POSTMAN
+        options: Options(
+          headers: {
+            // Kalau emailnya dosen, kirim header supaya Postman pakai Example "Login Dosen"
+            if (email.contains('dosen')) 'x-mock-response-name': 'Login Dosen',
+          },
+        ),
       );
 
       // 1. KITA PRINT DULU ISI ASLINYA BIAR KETAHUAN
       appLogger.w('📦 ISI RESPONSE POSTMAN: ${response.data}');
 
-      // 2. LOGIKA PARSING YANG LEBIH AMAN (SAFE CHECK)
-      // Jika response.data['data'] kosong, kita coba langsung baca response.data
+      // 2. LOGIKA PARSING (SAFE CHECK)
       final responseData = response.data['data'] ?? response.data;
 
-      final String? token = responseData['access_token'];
+      // 3. MASUKKAN JSON KE DALAM CETAKAN MODEL
+      // Di sinilah fungsi auth_model.dart bekerja!
+      final authData = AuthResponse.fromJson(responseData);
 
-      // Jika token tetap null, berarti Postman memang tidak membalas JSON yang benar
-      if (token == null) {
+      // Jika token kosong (karena fallback di model adalah string kosong ''), lempar error
+      if (authData.accessToken.isEmpty) {
         throw 'Gagal! Postman tidak mengirim access_token. Cek Example di Postman.';
       }
 
-      final String role = responseData['user']?['role'] ?? 'mahasiswa';
+      // 4. SIMPAN DATA KE SECURE STORAGE
+      // Perhatikan: Kita sekarang memanggil properti object (authData.accessToken),
+      // bukan lagi map manual (responseData['access_token']). Jauh lebih aman dari typo!
+      await _secureStorage.write(key: 'access_token', value: authData.accessToken);
+      await _secureStorage.write(key: 'user_role', value: authData.user.role);
 
-      await _secureStorage.write(key: 'access_token', value: token);
-      await _secureStorage.write(key: 'user_role', value: role);
-
-      appLogger.i('Login Berhasil! Role: $role');
+      appLogger.i('Login Berhasil! Role: ${authData.user.role}');
     } on DioException catch (e) {
       final errorMessage = e.response?.data['message'] ?? 'Koneksi ke server gagal.';
       throw errorMessage;
