@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../data/jadwal_model.dart';
 import '../../providers/jadwal_provider.dart';
+import '../widgets/hari_picker.dart';
+import '../widgets/jadwal_card.dart';
+import 'jadwal_detail_screen.dart';
 
-// Daftar nama hari, index 1-7 supaya cocok sama field `hari` di ERD
-// (1 = Senin, ..., 7 = Minggu). Index 0 sengaja dikosongkan.
-const List<String> _namaHari = [
-  '', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'
-];
+const List<String> _namaHari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+const Map<String, int> _hariToInt = {
+  'Senin': 1, 'Selasa': 2, 'Rabu': 3, 'Kamis': 4, 'Jumat': 5,
+};
 
 class JadwalScreen extends ConsumerWidget {
   const JadwalScreen({super.key});
@@ -15,133 +16,59 @@ class JadwalScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final semuaJadwalAsync = ref.watch(semuaJadwalProvider);
-    final selectedHari = ref.watch(selectedHariProvider);
+    final selectedHariInt = ref.watch(selectedHariProvider);
+    final selectedHariNama = _namaHari[selectedHariInt - 1];
 
     return Scaffold(
+      backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
-        title: const Text('Jadwal Kuliah'),
+        title: const Text('Jadwal Kuliah', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
       ),
       body: Column(
         children: [
-          // Baris tab hari (Senin - Minggu), bisa discroll horizontal
-          SizedBox(
-            height: 56,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              itemCount: 5, // Senin - Minggu
-              itemBuilder: (context, index) {
-                final hariValue = index + 1; // 1 - 7
-                final isSelected = hariValue == selectedHari;
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: ChoiceChip(
-                    label: Text(_namaHari[hariValue]),
-                    selected: isSelected,
-                    onSelected: (_) {
-                      ref.read(selectedHariProvider.notifier).state = hariValue;
-                    },
-                  ),
-                );
-              },
-            ),
+          HariPicker(
+            hariList: _namaHari,
+            selectedHari: selectedHariNama,
+            onSelected: (hari) {
+              ref.read(selectedHariProvider.notifier).state = _hariToInt[hari]!;
+            },
           ),
-          const Divider(height: 1),
-
-          // Daftar jadwal, difilter sesuai hari yang dipilih
+          const SizedBox(height: 12),
           Expanded(
             child: semuaJadwalAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stackTrace) => Center(
-                child: Text('Gagal memuat jadwal: $error'),
-              ),
+              error: (error, stack) => Center(child: Text('Gagal memuat jadwal: $error')),
               data: (jadwalList) {
-                final filtered = jadwalList
-                    .where((jadwal) => jadwal.hari == selectedHari)
-                    .toList();
+                final filtered = jadwalList.where((j) => j.hari == selectedHariInt).toList();
 
                 if (filtered.isEmpty) {
                   return Center(
-                    child: Text('Tidak ada jadwal di hari ${_namaHari[selectedHari]}.'),
+                    child: Text('Tidak ada jadwal di hari $selectedHariNama.', style: const TextStyle(color: Colors.grey)),
                   );
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   itemCount: filtered.length,
                   itemBuilder: (context, index) {
-                    return _JadwalCard(jadwal: filtered[index]);
+                    final jadwal = filtered[index];
+                    return JadwalCard(
+                      jadwal: jadwal,
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => JadwalDetailScreen(jadwal: jadwal)),
+                        );
+                      },
+                    );
                   },
                 );
               },
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Widget terpisah untuk 1 card jadwal, biar JadwalScreen gak kepanjangan.
-class _JadwalCard extends StatelessWidget {
-  final Jadwal jadwal;
-
-  const _JadwalCard({required this.jadwal});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Kolom jam di kiri
-            Column(
-              children: [
-                Text(jadwal.jamMulai, style: const TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                const Icon(Icons.more_vert, size: 14, color: Colors.grey),
-                const SizedBox(height: 4),
-                Text(jadwal.jamSelesai, style: const TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(width: 12),
-            Container(width: 3, height: 70, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 12),
-
-            // Detail matkul di kanan
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    jadwal.mataKuliah,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on_outlined, size: 16, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Text(jadwal.namaRuangan),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.person_outline, size: 16, color: Colors.grey),
-                      const SizedBox(width: 4),
-                      Text(jadwal.namaDosen),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
