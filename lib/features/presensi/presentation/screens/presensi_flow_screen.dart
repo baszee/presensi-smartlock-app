@@ -7,7 +7,6 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../sesi_kelas/data/sesi_model.dart';
 import '../../../../core/network/dio_provider.dart';
 import '../../../../core/utils/app_logger.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../devices/data/device_registration_service.dart';
 
 enum _PresensiStep { permission, scanBle, captureFace, verifying, submitting, success, error }
@@ -162,8 +161,9 @@ class _PresensiFlowScreenState extends ConsumerState<PresensiFlowScreen> {
       // registrasi background sempat gagal), coba daftarkan sekarang juga
       // sebagai fallback -- daripada kirim dummy string yang pasti ditolak
       // backend asli nanti.
-      var deviceId = await const FlutterSecureStorage().read(key: 'mobile_device_id');
-      deviceId ??= await DeviceRegistrationService.ensureRegistered(dio);
+      // Pastikan kamu sudah import device_registration_service.dart di atas file ini
+      var deviceId = await DeviceRegistrationService.readStoredId('mahasiswa');
+      deviceId = await DeviceRegistrationService.ensureRegistered(dio, role: 'mahasiswa');
 
       await dio.post('/mobile/mahasiswa/presensi', data: {
         'sesi_kelas_id': widget.sesi.id,

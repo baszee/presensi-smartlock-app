@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../sesi_kelas/data/sesi_model.dart';
 import '../../../sesi_kelas/providers/sesi_dosen_provider.dart';
-// IMPORT PROVIDER BARU KITA
-import '../../../sesi_kelas/providers/remote_unlock_provider.dart';
+import '../../../smart_lock/presentation/screens/lecturer_room_unlock_screen.dart';
+import '../../../smart_lock/presentation/widgets/remote_unlock_dialog.dart';
 
+/// Selaras dengan HomeScreen milik mahasiswa (AppBar putih + Card bahasa
+/// desain yang sama), warna aksen oranye untuk membedakan role dosen.
 class LecturerHomeScreen extends ConsumerWidget {
   const LecturerHomeScreen({super.key});
 
@@ -12,201 +15,271 @@ class LecturerHomeScreen extends ConsumerWidget {
     final sesiAsync = ref.watch(sesiDosenProvider);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFFAFAFA),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Center(
-                child: Text(
-                  'Beranda Dosen',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
+      backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: const Text('Beranda'),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+      ),
+      body: sesiAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Gagal memuat: $error')),
+        data: (sesiList) {
+          Sesi? sesiBerjalan;
+          for (final s in sesiList) {
+            if (s.status == 'berjalan') {
+              sesiBerjalan = s;
+              break;
+            }
+          }
+          final sesiBerikutnya = sesiBerjalan == null && sesiList.isNotEmpty ? sesiList.first : null;
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              return ref.refresh(sesiDosenProvider.future);
+            },
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Text(
+                  sesiBerjalan != null
+                      ? 'Sesi Mengajar Saat Ini'
+                      : (sesiBerikutnya != null ? 'Sesi Berikutnya' : 'Sesi Mengajar'),
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-              ),
-              const SizedBox(height: 32),
-              const Text(
-                'Sesi Mengajar Saat Ini',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                if (sesiBerjalan != null)
+                  _SesiAktifCard(sesi: sesiBerjalan)
+                else if (sesiBerikutnya != null)
+                  _SesiPasifCard(sesi: sesiBerikutnya)
+                else
+                  const _TidakAdaSesiCard(),
 
-              sesiAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(
-                  child: Text('Gagal memuat jadwal: $error', style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 28),
+                const Text(
+                  'Akses Lain',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-                data: (sesiList) {
-                  if (sesiList.isEmpty) {
-                    return const Center(child: Text('Tidak ada sesi kelas yang berjalan saat ini.'));
-                  }
+                const SizedBox(height: 12),
+                _BukaRuanganLainCard(),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
 
-                  final sesi = sesiList.first;
+/// Card untuk sesi yang BENERAN sedang berjalan -- tombol Remote Unlock aktif.
+class _SesiAktifCard extends ConsumerWidget {
+  final Sesi sesi;
+  const _SesiAktifCard({required this.sesi});
 
-                  return _buildSesiCard(
-                    context,
-                    ref,
-                    sesiId: sesi.id, // KITA BUTUH ID INI UNTUK DITEMBAK KE API
-                    ruangan: sesi.namaRuangan,
-                    mataKuliah: 'Sistem Embedded',
-                    status: sesi.status.toUpperCase(),
-                  );
-                },
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade300),
+      ),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    sesi.namaRuangan,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'Berjalan',
+                    style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text(sesi.tanggal, style: const TextStyle(color: Colors.grey)),
+              ],
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade600,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.lock_open),
+                label: const Text('Buka Pintu (Remote Unlock)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                onPressed: () => showRemoteUnlockDialog(context, ref, ruanganId: sesi.ruanganId),
               ),
-            ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Card info pasif untuk sesi yang belum berjalan -- selaras dengan
+/// _SesiPasifCard milik mahasiswa, TIDAK ada tombol aktif.
+class _SesiPasifCard extends StatelessWidget {
+  final Sesi sesi;
+  const _SesiPasifCard({required this.sesi});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade300),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    sesi.namaRuangan,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    sesi.status,
+                    style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
+                const SizedBox(width: 6),
+                Text(sesi.tanggal, style: const TextStyle(color: Colors.grey)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Buka Pintu akan aktif begitu sesi ini berjalan.',
+              style: TextStyle(color: Colors.grey, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Empty state kalau dosen memang tidak punya sesi sama sekali hari ini.
+class _TidakAdaSesiCard extends StatelessWidget {
+  const _TidakAdaSesiCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: Colors.grey.shade300),
+      ),
+      child: const Padding(
+        padding: EdgeInsets.all(20),
+        child: Center(
+          child: Text(
+            'Tidak ada sesi mengajar hari ini,\nnikmati harimu! 🎉',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 15, color: Colors.grey),
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildSesiCard(BuildContext context, WidgetRef ref, {
-    required String sesiId,
-    required String ruangan,
-    required String mataKuliah,
-    required String status,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(ruangan, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  status,
-                  style: TextStyle(color: Colors.blue.shade600, fontWeight: FontWeight.bold, fontSize: 12),
-                ),
+/// Entry point ke LecturerRoomUnlockScreen -- dipakai untuk kasus mahasiswa
+/// bimbingan sudah di depan ruangan tapi dosen belum sampai, dosen bisa
+/// buka pintu ruangan manapun yang terhubung dengan jadwalnya, TANPA harus
+/// menunggu sesi itu berstatus "berjalan".
+class _BukaRuanganLainCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const LecturerRoomUnlockScreen()),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(Icons.book, size: 16, color: Colors.grey),
-              const SizedBox(width: 8),
-              Text(mataKuliah, style: const TextStyle(color: Colors.grey, fontSize: 14)),
-            ],
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orange.shade500,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 0,
-              ),
-              onPressed: () => _showUnlockDialog(context, ref, sesiId),
-              icon: const Icon(Icons.lock_open, size: 20),
-              label: const Text('Buka Pintu (Remote Unlock)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              child: Icon(Icons.meeting_room_outlined, color: Colors.orange.shade600),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // FUNGSI UNTUK MENAMPILKAN DIALOG PASSWORD
-  void _showUnlockDialog(BuildContext context, WidgetRef ref, String sesiId) {
-    final passwordController = TextEditingController();
-    bool isLoading = false;
-
-    showDialog(
-        context: context,
-        barrierDismissible: false, // Tidak bisa ditutup dengan klik luar kotak
-        builder: (ctx) {
-          return StatefulBuilder(
-              builder: (context, setState) {
-                return AlertDialog(
-                  title: const Text('Keamanan Smart Lock', style: TextStyle(fontWeight: FontWeight.bold)),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text('Masukkan password Anda untuk mengonfirmasi akses pembukaan pintu.'),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: passwordController,
-                        obscureText: true, // Sensor ketikan jadi bintang/titik
-                        decoration: const InputDecoration(
-                          labelText: 'Password',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.lock_outline),
-                        ),
-                      ),
-                    ],
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Buka Ruangan Lain', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  SizedBox(height: 2),
+                  Text(
+                    'Untuk mahasiswa bimbingan yang menunggu di ruangan',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: isLoading ? null : () => Navigator.pop(ctx),
-                      child: const Text('Batal', style: TextStyle(color: Colors.grey)),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                      onPressed: isLoading ? null : () async {
-                        if (passwordController.text.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Password tidak boleh kosong!')),
-                          );
-                          return;
-                        }
-
-                        // 1. Ubah state jadi loading
-                        setState(() => isLoading = true);
-
-                        // 2. Tembak API
-                        await ref.read(remoteUnlockProvider.notifier).unlockDoor(sesiId, passwordController.text);
-
-                        // 3. Ambil hasil respons API
-                        final unlockState = ref.read(remoteUnlockProvider);
-
-                        setState(() => isLoading = false);
-
-                        // 4. Tutup dialog dan tampilkan notifikasi sesuai hasil
-                        if (ctx.mounted) Navigator.pop(ctx);
-                        if (context.mounted) {
-                          if (unlockState.status == UnlockStatus.success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(unlockState.message ?? 'Pintu berhasil dibuka!'),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(unlockState.message ?? 'Gagal membuka pintu'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        }
-                      },
-                      child: isLoading
-                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                          : const Text('Buka Pintu', style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
-                );
-              }
-          );
-        }
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey.shade400),
+          ],
+        ),
+      ),
     );
   }
 }

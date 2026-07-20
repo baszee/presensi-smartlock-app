@@ -5,6 +5,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Tambahan
 
 // Sesuaikan path import ini jika letak auth_provider.dart milikmu berbeda
 import '../../providers/auth_provider.dart';
+import '../../../devices/data/device_registration_service.dart';
+import '../../../../core/network/dio_provider.dart';
+import '../../../../core/utils/app_logger.dart';
 
 // Gunakan ConsumerWidget agar bisa membaca state dari Riverpod
 class LoginScreen extends ConsumerWidget {
@@ -20,6 +23,22 @@ class LoginScreen extends ConsumerWidget {
         () async {
           const storage = FlutterSecureStorage();
           final role = await storage.read(key: 'user_role');
+
+          if (role == 'dosen') {
+            // Dosen tidak lewat alur onboarding kayak mahasiswa (tidak ada
+            // layar lengkapi profil/enroll wajah), jadi ini titik SATU-
+            // SATUNYA yang pasti kelewat setiap kali dosen login. Silent,
+            // di background, tidak menghalangi navigasi ke Home -- sesuai
+            // API_CONTRACT2.md Bagian 7 & ADR_V3.txt Bagian 9.5 [CONFIRMED]:
+            // "POST /mobile/devices dengan nfc_supported: true wajib agar
+            // HP tersebut memenuhi syarat dipakai untuk Remote Unlock."
+            final dio = ref.read(dioClientProvider);
+            DeviceRegistrationService.ensureRegistered(dio, role: 'dosen', nfcSupported: true).then((deviceId) {
+              if (deviceId == null) {
+                appLogger.e('⚠️ Registrasi HP dosen gagal -- Remote Unlock nanti akan ditolak backend.');
+              }
+            });
+          }
 
           if (context.mounted) {
             // Gerbang tol: Lempar sesuai role

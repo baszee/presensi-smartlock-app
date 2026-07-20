@@ -1,11 +1,17 @@
 import 'package:dio/dio.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-/// Interceptor ini "menyamar" jadi backend asli untuk 6 endpoint onboarding.
-/// Selain 6 endpoint ini, semua request tetap diteruskan ke Postman Mock
-/// seperti biasa (lihat handler.next(options) di paling bawah).
+/// Interceptor ini "menyamar" jadi backend asli, TAPI KHUSUS UNTUK MAHASISWA.
+///
+/// PENTING -- role gate:
+/// Dosen SELALU diteruskan ke Postman Mock (handler.next), karena backend
+/// palsu ini cuma "kenal" data mahasiswa yang disimpan di Hive. Tanpa gate
+/// ini, tombol "Login Dummy (Dosen)" dan GET /user milik dosen akan
+/// dibajak dan diam-diam dikembalikan data mahasiswa.
 class FakeBackendInterceptor extends Interceptor {
   Box get _box => Hive.box('mock_db_box');
+  static const _secureStorage = FlutterSecureStorage();
 
   // Data default kalau belum pernah register sama sekali —
   // supaya kamu tetap bisa login tanpa harus register dulu tiap testing.
@@ -36,11 +42,11 @@ class FakeBackendInterceptor extends Interceptor {
   }
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
     final path = options.path;
     final method = options.method.toUpperCase();
 
-    // 1. REGISTER MAHASISWA
+    // 1. REGISTER MAHASISWA -- path eksplisit /mahasiswa/, aman untuk dosen.
     if (path.contains('/auth/register/mahasiswa') && method == 'POST') {
       final body = options.data as Map<String, dynamic>? ?? {};
       final userData = _defaultUser();
@@ -55,11 +61,19 @@ class FakeBackendInterceptor extends Interceptor {
       ));
     }
 
-    // 2. LOGIN
-    // Bentuk respons ini WAJIB sama persis dengan yang dibaca
-    // AuthResponse.fromJson di auth_model.dart — flag onboarding
-    // ada di LEVEL ATAS json, bukan di dalam "user".
+    // 2. LOGIN -- GATE PENTING: kalau emailnya dosen, JANGAN dicegat,
+    // teruskan ke Postman supaya Example "Login Dosen" yang dipakai.
     if (path.contains('/auth/login') && method == 'POST') {
+      final body = options.data as Map<String, dynamic>? ?? {};
+      final email = (body['email'] ?? '').toString();
+
+      if (email.contains('dosen')) {
+        return handler.next(options);
+      }
+
+      // Bentuk respons ini WAJIB sama persis dengan yang dibaca
+      // AuthResponse.fromJson di auth_model.dart — flag onboarding
+      // ada di LEVEL ATAS json, bukan di dalam "user".
       final userData = _readUser();
 
       return handler.resolve(Response(
@@ -83,9 +97,18 @@ class FakeBackendInterceptor extends Interceptor {
       ));
     }
 
-    // 3. GET USER (dipakai profile_provider.dart)
-    // Bentuk ini WAJIB sama dengan UserProfile.fromJson di profile_model.dart.
+    // 3. GET USER (dipakai profile_provider.dart) -- GATE PENTING JUGA:
+    // GET tidak punya body untuk dicek emailnya, jadi kita baca role
+    // yang disimpan auth_repository.dart saat login berhasil. Kalau
+    // dosen, teruskan ke Postman supaya Example "Profile Aktif Dosen"
+    // (perlu kamu buat manual di Postman) yang dipakai.
     if (path == '/user' && method == 'GET') {
+      final storedRole = await _secureStorage.read(key: 'user_role');
+      if (storedRole == 'dosen') {
+        return handler.next(options);
+      }
+
+      // Bentuk ini WAJIB sama dengan UserProfile.fromJson di profile_model.dart.
       final userData = _readUser();
 
       return handler.resolve(Response(
@@ -141,8 +164,15 @@ class FakeBackendInterceptor extends Interceptor {
       ));
     }
 
-    // 6. REGISTER DEVICE (HP)
+    // 6. REGISTER DEVICE (HP) -- GATE PENTING JUGA: endpoint ini dipakai
+    // dosen (saat daftar HP ber-NFC) dan mahasiswa. Kalau dosen, teruskan
+    // ke Postman -- jangan tulis ke data mahasiswa di Hive.
     if (path.contains('/mobile/devices') && method == 'POST') {
+      final storedRole = await _secureStorage.read(key: 'user_role');
+      if (storedRole == 'dosen') {
+        return handler.next(options);
+      }
+
       final userData = _readUser();
       userData['device_registered'] = true;
       _saveUser(userData);

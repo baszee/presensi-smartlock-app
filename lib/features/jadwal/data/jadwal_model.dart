@@ -3,6 +3,7 @@ class Jadwal {
   final String mataKuliah;
   final String jamMulai;
   final String jamSelesai;
+  final String ruanganId;
   final String namaRuangan;
   final String namaDosen;
   final int hari;
@@ -12,6 +13,7 @@ class Jadwal {
     required this.mataKuliah,
     required this.jamMulai,
     required this.jamSelesai,
+    required this.ruanganId,
     required this.namaRuangan,
     required this.namaDosen,
     required this.hari,
@@ -47,6 +49,7 @@ class Jadwal {
       jamSelesai: json['jam_selesai'] ?? '-',
 
       // 3. Mengambil nama_ruangan dari dalam objek "ruangan"
+      ruanganId: json['ruangan']?['id']?.toString() ?? '',
       namaRuangan: json['ruangan']?['nama_ruangan'] ?? '-',
 
       namaDosen: json['nama_dosen'] ?? 'Dosen Belum Ditentukan',

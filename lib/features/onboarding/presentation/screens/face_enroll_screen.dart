@@ -33,7 +33,7 @@ class _FaceEnrollScreenState extends ConsumerState<FaceEnrollScreen> {
 
       // Daftarkan HP ini di background -- silent, tidak ada layar khusus,
       // dan kalau gagal TIDAK menghalangi user lanjut ke Home.
-      await DeviceRegistrationService.ensureRegistered(dio, nfcSupported: false);
+      await DeviceRegistrationService.ensureRegistered(dio, role: 'mahasiswa', nfcSupported: false);
 
       if (mounted) context.go('/home');
     } catch (e) {

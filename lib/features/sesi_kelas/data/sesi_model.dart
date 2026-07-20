@@ -5,6 +5,7 @@ class Sesi {
   final String status;
   final bool sudahPresensi;
   final String? waktuPresensi; // Bisa null kalau belum presensi
+  final String ruanganId;
   final String namaRuangan;
 
   Sesi({
@@ -14,6 +15,7 @@ class Sesi {
     required this.status,
     required this.sudahPresensi,
     this.waktuPresensi,
+    required this.ruanganId,
     required this.namaRuangan,
   });
 
@@ -25,7 +27,8 @@ class Sesi {
       status: json['status'] ?? 'tidak_diketahui',
       sudahPresensi: json['sudah_presensi'] ?? false,
       waktuPresensi: json['waktu_presensi'],
-      // Ambil nama ruangan dari dalam nested object
+      // Ambil id + nama ruangan dari dalam nested object
+      ruanganId: json['ruangan']?['id']?.toString() ?? '',
       namaRuangan: json['ruangan']?['nama_ruangan'] ?? '-',
     );
   }
