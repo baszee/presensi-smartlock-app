@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../utils/app_logger.dart';
+import 'fake_backend_interceptor.dart';
 
 class DioClient {
   late final Dio dio;
@@ -23,6 +24,8 @@ class DioClient {
     );
 
     dio.interceptors.addAll([
+
+      FakeBackendInterceptor(),
       // 1. AUTH INTERCEPTOR: Otomatis menyuntikkan Bearer Token
       InterceptorsWrapper(
         onRequest: (options, handler) async {

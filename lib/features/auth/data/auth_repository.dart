@@ -49,6 +49,12 @@ class AuthRepository {
       await _secureStorage.write(key: 'access_token', value: authData.accessToken);
       await _secureStorage.write(key: 'user_role', value: authData.user.role);
 
+      // Simpan flag onboarding juga, supaya router (app_router.dart) bisa
+      // baca langsung dari storage tanpa perlu nembak API tiap pindah layar.
+      await _secureStorage.write(key: 'profile_completed', value: authData.profileCompleted.toString());
+      await _secureStorage.write(key: 'face_enrolled', value: authData.faceEnrolled.toString());
+      await _secureStorage.write(key: 'assigned_to_rombel', value: authData.assignedToRombel.toString());
+
       appLogger.i('Login Berhasil! Role: ${authData.user.role}');
     } on DioException catch (e) {
       final errorMessage = e.response?.data['message'] ?? 'Koneksi ke server gagal.';
