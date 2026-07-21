@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_provider.dart';
 import '../../../core/utils/app_logger.dart';
 import 'auth_model.dart'; // <-- Import ini sekarang akan menyala/terang!
@@ -23,7 +24,7 @@ class AuthRepository {
         options: Options(
           headers: {
             // Kalau emailnya dosen, kirim header supaya Postman pakai Example "Login Dosen"
-            if (email.contains('dosen')) 'x-mock-response-name': 'Login Dosen',
+            if (AppConfig.useMockBackend && email.contains('dosen')) 'x-mock-response-name': 'Login Dosen',
           },
         ),
       );

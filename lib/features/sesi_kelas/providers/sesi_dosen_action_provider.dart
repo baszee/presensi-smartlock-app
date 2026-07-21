@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_provider.dart';
 
 enum SesiActionStatus { initial, loading, success, error }
@@ -33,7 +34,7 @@ class SesiDosenActionNotifier extends StateNotifier<SesiActionState> {
       final response = await _dio.patch(
         '/mobile/dosen/sesi/$sesiId',
         data: {'tanggal': tanggalStr},
-        options: Options(headers: {'x-mock-response-name': 'Reschedule Sesi'}),
+        options: Options(headers: {if (AppConfig.useMockBackend) 'x-mock-response-name': 'Reschedule Sesi'}),
       );
 
       state = SesiActionState(
@@ -57,7 +58,7 @@ class SesiDosenActionNotifier extends StateNotifier<SesiActionState> {
       final response = await _dio.post(
         '/mobile/dosen/sesi/$sesiId/cancel',
         data: {if (alasan != null && alasan.isNotEmpty) 'alasan': alasan},
-        options: Options(headers: {'x-mock-response-name': 'Cancel Sesi'}),
+        options: Options(headers: {if (AppConfig.useMockBackend) 'x-mock-response-name': 'Cancel Sesi'}),
       );
 
       state = SesiActionState(

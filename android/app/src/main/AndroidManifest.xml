@@ -2,6 +2,7 @@
     xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
     <!-- Bluetooth: dibutuhkan untuk koneksi BLE ke smart lock -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../config/app_config.dart';
 import '../utils/app_logger.dart';
 import 'fake_backend_interceptor.dart';
 
@@ -7,8 +8,13 @@ class DioClient {
   late final Dio dio;
   final FlutterSecureStorage secureStorage;
 
-  // 🔴 PASTIKAN URL INI MILIK POSTMAN MOCK SERVER-MU!
-  static const String baseUrl = 'https://68b8e6dd-1738-4a8a-a25e-9dbec037fe1e.mock.pstmn.io/api/v1';
+  // Ganti lewat AppConfig.useMockBackend (lib/core/config/app_config.dart),
+  // JANGAN ubah manual di sini -- biar 1 saklar ngontrol baseUrl + interceptor
+  // sekaligus, nggak ada kemungkinan lupa salah satunya.
+  static const String _mockBaseUrl = 'https://68b8e6dd-1738-4a8a-a25e-9dbec037fe1e.mock.pstmn.io/api/v1';
+  static const String _realBaseUrl = 'https://subprime-decay-figure.ngrok-free.dev/api/v1';
+
+  static const String baseUrl = AppConfig.useMockBackend ? _mockBaseUrl : _realBaseUrl;
 
   DioClient(this.secureStorage) {
     dio = Dio(
@@ -19,13 +25,17 @@ class DioClient {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
+          // ngrok gratis nampilin halaman peringatan browser sebelum ke
+          // request asli kalau header ini nggak ada -- request dari app
+          // (bukan browser) akan gagal parse HTML itu sebagai JSON.
+          if (!AppConfig.useMockBackend) 'ngrok-skip-browser-warning': 'true',
         },
       ),
     );
 
     dio.interceptors.addAll([
 
-      FakeBackendInterceptor(),
+      if (AppConfig.useMockBackend) FakeBackendInterceptor(),
       // 1. AUTH INTERCEPTOR: Otomatis menyuntikkan Bearer Token
       InterceptorsWrapper(
         onRequest: (options, handler) async {

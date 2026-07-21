@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_provider.dart';
 import '../data/jadwal_model.dart';
 
@@ -15,7 +16,7 @@ final jadwalDosenProvider = FutureProvider.autoDispose<List<Jadwal>>((ref) async
       '/mobile/dosen/jadwal', // Pastikan endpoint di Postman-mu seperti ini
       options: Options(
         headers: {
-          'x-mock-response-name': 'Jadwal Dosen', // Harus sama persis dengan nama Example
+          if (AppConfig.useMockBackend) 'x-mock-response-name': 'Jadwal Dosen', // Harus sama persis dengan nama Example
         },
       ),
     );

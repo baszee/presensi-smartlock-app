@@ -44,7 +44,12 @@ class AuthResponse {
 }
 
 class UserModel {
-  final int id;
+  // Sebelumnya "int id" -- salah, karena Postman mock ngirim angka (1, 10)
+  // tapi backend asli pakai UUID string buat semua ID (sama kayak
+  // jadwal_id, ruangan_id, dst di seluruh kontrak). Ini penyebab error
+  // "type 'String' is not a subtype of type 'int'" pas hookup ke backend
+  // asli.
+  final String id;
   final String email;
   final String role;
   final String namaLengkap;
@@ -58,7 +63,7 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['id'] ?? 0,
+      id: json['id']?.toString() ?? '',
       email: json['email'] ?? '',
       role: json['role'] ?? 'mahasiswa',
       namaLengkap: json['nama_lengkap'] ?? 'User',

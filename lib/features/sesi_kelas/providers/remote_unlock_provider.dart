@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_provider.dart';
 import '../../devices/data/device_registration_service.dart';
 
@@ -50,7 +51,7 @@ class RemoteUnlockNotifier extends StateNotifier<RemoteUnlockState> {
         },
         options: Options(
           headers: {
-            'x-mock-response-name': 'Remote Unlock',
+            if (AppConfig.useMockBackend) 'x-mock-response-name': 'Remote Unlock',
           },
         ),
       );

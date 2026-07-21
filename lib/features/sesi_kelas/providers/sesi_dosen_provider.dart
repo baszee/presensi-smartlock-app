@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_provider.dart';
 import '../../../core/utils/app_logger.dart';
 // Sesuaikan jika nama file dart-nya berbeda, tapi biasanya ini benar:
@@ -14,7 +15,7 @@ final sesiDosenProvider = FutureProvider.autoDispose<List<Sesi>>((ref) async {
       '/mobile/dosen/sesi',
       options: Options(
         headers: {
-          'x-mock-response-name': 'Sesi Dosen',
+          if (AppConfig.useMockBackend) 'x-mock-response-name': 'Sesi Dosen',
         },
       ),
     );

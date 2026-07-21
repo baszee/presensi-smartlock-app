@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_provider.dart';
 import '../../../core/utils/app_logger.dart';
 import '../data/sesi_model.dart';
@@ -19,8 +20,8 @@ final sesiHariIniProvider = FutureProvider<List<Sesi>>((ref) async {
       '/mobile/mahasiswa/sesi',
       options: Options(
         headers: {
-          // Trik andalanmu masuk di sini!
-          'x-mock-response-name': headerName,
+          // Trik andalanmu masuk di sini! (cuma aktif kalau mock nyala)
+          if (AppConfig.useMockBackend) 'x-mock-response-name': headerName,
         },
       ),
     );

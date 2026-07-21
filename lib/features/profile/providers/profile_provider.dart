@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../core/config/app_config.dart';
 import '../../../core/network/dio_provider.dart';
 import '../../../core/utils/app_logger.dart';
 import '../data/profile_model.dart';
@@ -21,7 +22,7 @@ final profileProvider = FutureProvider<UserProfile>((ref) async {
         headers: {
           // Perlu Example baru di Postman bernama persis "Profile Aktif Dosen"
           // untuk GET /user, isinya data dosen (nidn, kode_dosen, gelar, dst).
-          if (role == 'dosen') 'x-mock-response-name': 'Profile Aktif Dosen',
+          if (AppConfig.useMockBackend && role == 'dosen') 'x-mock-response-name': 'Profile Aktif Dosen',
         },
       ),
     );
