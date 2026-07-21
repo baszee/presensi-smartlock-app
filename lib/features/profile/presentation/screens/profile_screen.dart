@@ -34,7 +34,7 @@ class ProfileScreen extends ConsumerWidget {
                       radius: 50,
                       backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                       child: Text(
-                        profile.namaLengkap[0].toUpperCase(), // Inisial nama
+                        profile.namaLengkap.isNotEmpty ? profile.namaLengkap[0].toUpperCase() : '?',
                         style: TextStyle(
                           fontSize: 36,
                           fontWeight: FontWeight.bold,

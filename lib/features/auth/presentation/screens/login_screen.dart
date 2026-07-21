@@ -1,37 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // Tambahan import untuk storage
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
-// Sesuaikan path import ini jika letak auth_provider.dart milikmu berbeda
 import '../../providers/auth_provider.dart';
 import '../../../devices/data/device_registration_service.dart';
 import '../../../../core/network/dio_provider.dart';
 import '../../../../core/utils/app_logger.dart';
 
-// Gunakan ConsumerWidget agar bisa membaca state dari Riverpod
-class LoginScreen extends ConsumerWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+}
 
-    // Dengarkan perubahan status Auth secara reaktif
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  // Tambahkan controller untuk menangkap ketikan keyboard
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     ref.listen<AuthState>(authProvider, (previous, next) {
       if (next.status == AuthStatus.success) {
-        // Bungkus dengan anonymous async function agar bisa await baca storage
         () async {
           const storage = FlutterSecureStorage();
           final role = await storage.read(key: 'user_role');
 
           if (role == 'dosen') {
-            // Dosen tidak lewat alur onboarding kayak mahasiswa (tidak ada
-            // layar lengkapi profil/enroll wajah), jadi ini titik SATU-
-            // SATUNYA yang pasti kelewat setiap kali dosen login. Silent,
-            // di background, tidak menghalangi navigasi ke Home -- sesuai
-            // API_CONTRACT2.md Bagian 7 & ADR_V3.txt Bagian 9.5 [CONFIRMED]:
-            // "POST /mobile/devices dengan nfc_supported: true wajib agar
-            // HP tersebut memenuhi syarat dipakai untuk Remote Unlock."
             final dio = ref.read(dioClientProvider);
             DeviceRegistrationService.ensureRegistered(dio, role: 'dosen', nfcSupported: true).then((deviceId) {
               if (deviceId == null) {
@@ -41,7 +46,6 @@ class LoginScreen extends ConsumerWidget {
           }
 
           if (context.mounted) {
-            // Gerbang tol: Lempar sesuai role
             if (role == 'dosen') {
               context.go('/lecturer/home');
             } else {
@@ -50,7 +54,6 @@ class LoginScreen extends ConsumerWidget {
           }
         }();
       } else if (next.status == AuthStatus.error) {
-        // Jika login gagal, tampilkan Snackbar pesan error
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.errorMessage ?? 'Login Gagal'),
@@ -60,43 +63,83 @@ class LoginScreen extends ConsumerWidget {
       }
     });
 
-    // Pantau state saat ini untuk merubah UI (misal nampilin loading)
     final authState = ref.watch(authProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Smart Lock Login'),
-      ),
+      appBar: AppBar(title: const Text('Smart Lock Login')),
       body: Center(
         child: authState.status == AuthStatus.loading
             ? const CircularProgressIndicator()
-            : Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Tombol 1: Tes Login Mahasiswa
-            ElevatedButton(
-              onPressed: () {
-                ref.read(authProvider.notifier).login(
-                  'mahasiswa1@smartlock.test', // Email ini akan dibaca sbg mahasiswa
-                  'DemoSmartlock123!',
-                );
-              },
-              child: const Text('Login Dummy (Mahasiswa)'),
-            ),
-            const SizedBox(height: 16),
+            : Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // --- FORM LOGIN SUNGGUHAN ---
+              TextField(
+                controller: _emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.email),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _passwordController,
+                decoration: const InputDecoration(
+                  labelText: 'Password',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.lock),
+                ),
+                obscureText: true,
+              ),
+              const SizedBox(height: 24),
 
-            // Tombol 2: Tes Login Dosen
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-              onPressed: () {
-                ref.read(authProvider.notifier).login(
-                  'dosen@smartlock.test', // Email ini akan dibaca sbg dosen
-                  'DemoSmartlock123!',
-                );
-              },
-              child: const Text('Login Dummy (Dosen)'),
-            ),
-          ],
+              // --- TOMBOL LOGIN UTAMA ---
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: () {
+                    // Pastikan tidak kosong sebelum menembak API
+                    if (_emailController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
+                      ref.read(authProvider.notifier).login(
+                        _emailController.text.trim(),
+                        _passwordController.text.trim(),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Email dan Password wajib diisi!')),
+                      );
+                    }
+                  },
+                  child: const Text('Login'),
+                ),
+              ),
+
+              const SizedBox(height: 32),
+              const Divider(),
+
+              // --- TOMBOL RESET HIVE (Untuk kemudahan testing) ---
+              TextButton(
+                onPressed: () async {
+                  final box = Hive.box('mock_db_box');
+                  await box.clear();
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Data Onboarding Hive dibersihkan!')),
+                    );
+                  }
+                },
+                child: const Text(
+                  'Reset Data Lokal (Testing)',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
