@@ -53,7 +53,7 @@ class JadwalCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(jadwal.mataKuliah, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(jadwal.namaRombel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const SizedBox(height: 6),
                   Row(
                     children: [

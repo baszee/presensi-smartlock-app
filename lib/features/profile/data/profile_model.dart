@@ -28,17 +28,26 @@ class UserProfile {
   });
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
+    // PENTING: backend asli (ProfileController::show) nge-nest data
+    // akademik di dalam relasi terpisah -- "profil_mahasiswa" untuk
+    // mahasiswa, "profil_dosen" untuk dosen -- BUKAN rata di level atas.
+    // Cuma "role" dan "email" yang beneran kolom langsung di User.
+    final profilMahasiswa = json['profil_mahasiswa'] as Map<String, dynamic>?;
+    final profilDosen = json['profil_dosen'] as Map<String, dynamic>?;
+
+    final namaDariRelasi = profilMahasiswa?['nama_lengkap'] ?? profilDosen?['nama_lengkap'];
+
     return UserProfile(
-      namaLengkap: json['nama_lengkap'] ?? 'Tanpa Nama',
+      namaLengkap: namaDariRelasi ?? json['nama_lengkap'] ?? 'Tanpa Nama',
       email: json['email'] ?? '-',
       role: json['role'] ?? 'mahasiswa',
-      nim: json['nim'] ?? '-',
-      programStudi: json['program_studi'] ?? '-',
-      angkatan: json['angkatan']?.toString() ?? '-',
-      nidn: json['nidn'],
-      kodeDosen: json['kode_dosen'],
-      gelarDepan: json['gelar_depan'],
-      gelarBelakang: json['gelar_belakang'],
+      nim: profilMahasiswa?['nim'] ?? '-',
+      programStudi: profilMahasiswa?['program_studi'] ?? '-',
+      angkatan: profilMahasiswa?['angkatan']?.toString() ?? '-',
+      nidn: profilDosen?['nidn'],
+      kodeDosen: profilDosen?['kode_dosen'],
+      gelarDepan: profilDosen?['gelar_depan'],
+      gelarBelakang: profilDosen?['gelar_belakang'],
     );
   }
 

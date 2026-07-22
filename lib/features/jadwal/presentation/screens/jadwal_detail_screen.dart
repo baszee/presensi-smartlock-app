@@ -14,7 +14,7 @@ class JadwalDetailScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
-        title: Text(jadwal.mataKuliah, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+        title: Text(jadwal.namaRombel, style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
       ),
@@ -46,14 +46,16 @@ class JadwalDetailScreen extends ConsumerWidget {
             loading: () => const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator())),
             error: (e, _) => const Text('Gagal memuat riwayat.', style: TextStyle(color: Colors.grey)),
             data: (riwayatList) {
-              final filtered = riwayatList.where((r) => r.mataKuliah == jadwal.mataKuliah).toList();
+              // Dicocokkan berdasarkan nama rombel (data riwayat sudah bawa
+              // ini dari relasi sesi_kelas.jadwal.rombel di backend).
+              final filtered = riwayatList.where((r) => r.namaRombel == jadwal.namaRombel).toList();
 
               if (filtered.isEmpty) {
                 return const Padding(
                   padding: EdgeInsets.symmetric(vertical: 24),
                   child: Center(
                     child: Text(
-                      'Belum ada riwayat presensi untuk mata kuliah ini.',
+                      'Belum ada riwayat presensi untuk rombel ini.',
                       style: TextStyle(color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
