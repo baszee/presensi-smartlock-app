@@ -7,6 +7,10 @@ import '../../../../core/network/dio_provider.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/widgets/face_camera_capture.dart';
 import '../../../devices/data/device_registration_service.dart';
+import '../../../profile/providers/profile_provider.dart';
+import '../../../jadwal/providers/jadwal_provider.dart';
+import '../../../sesi_kelas/providers/sesi_provider.dart';
+import '../../../riwayat_presensi/providers/riwayat_provider.dart';
 
 enum _EnrollStep { consent, capture, submitting }
 
@@ -61,6 +65,43 @@ class _FaceEnrollScreenState extends ConsumerState<FaceEnrollScreen> {
     }
   }
 
+  /// Sama seperti complete_profile_screen.dart (step 1) & waiting_rombel_
+  /// screen.dart (step 3): "back" = kembali ke login (logout), bukan
+  /// balik ke step profil -- profil yang sudah disimpan di backend
+  /// TIDAK hilang, jadi aman.
+  Future<void> _confirmBackToLogin() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Kembali ke Login?'),
+        content: const Text(
+          'Data profil kamu yang sudah disimpan tetap aman. '
+              'Kamu bisa login lagi kapan saja untuk lanjut mendaftarkan wajah.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ya, Kembali')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    const storage = FlutterSecureStorage();
+    await storage.delete(key: 'access_token');
+    await storage.delete(key: 'user_role');
+    await storage.delete(key: 'profile_completed');
+    await storage.delete(key: 'face_enrolled');
+    await storage.delete(key: 'assigned_to_rombel');
+    ref.invalidate(profileProvider);
+    ref.invalidate(semuaJadwalProvider);
+    ref.invalidate(jadwalHariIniProvider);
+    ref.invalidate(sesiHariIniProvider);
+    ref.invalidate(sesiHariIniDenganPresensiProvider);
+    ref.invalidate(riwayatPresensiProvider);
+    if (mounted) context.go('/login');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -70,6 +111,11 @@ class _FaceEnrollScreenState extends ConsumerState<FaceEnrollScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Kembali ke Login',
+          onPressed: _step == _EnrollStep.submitting ? null : _confirmBackToLogin,
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),

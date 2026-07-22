@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../profile/providers/profile_provider.dart';
+import '../../../jadwal/providers/jadwal_provider.dart';
+import '../../../sesi_kelas/providers/sesi_provider.dart';
+import '../../../riwayat_presensi/providers/riwayat_provider.dart';
 
-class WaitingRombelScreen extends StatelessWidget {
+class WaitingRombelScreen extends ConsumerWidget {
   const WaitingRombelScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       appBar: AppBar(
@@ -26,6 +31,14 @@ class WaitingRombelScreen extends StatelessWidget {
               await storage.delete(key: 'profile_completed');
               await storage.delete(key: 'face_enrolled');
               await storage.delete(key: 'assigned_to_rombel');
+              // Sama seperti profile_screen.dart -- buang cache provider
+              // supaya login berikutnya tidak baca data basi.
+              ref.invalidate(profileProvider);
+              ref.invalidate(semuaJadwalProvider);
+              ref.invalidate(jadwalHariIniProvider);
+              ref.invalidate(sesiHariIniProvider);
+              ref.invalidate(sesiHariIniDenganPresensiProvider);
+              ref.invalidate(riwayatPresensiProvider);
               if (context.mounted) context.go('/login');
             },
           ),

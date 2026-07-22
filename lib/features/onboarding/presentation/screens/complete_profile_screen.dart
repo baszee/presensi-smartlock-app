@@ -4,6 +4,11 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../core/network/dio_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../profile/providers/profile_provider.dart';
+import '../../../jadwal/providers/jadwal_provider.dart';
+import '../../../sesi_kelas/providers/sesi_provider.dart';
+import '../../../riwayat_presensi/providers/riwayat_provider.dart';
+
 class CompleteProfileScreen extends ConsumerStatefulWidget {
   const CompleteProfileScreen({super.key});
 
@@ -49,6 +54,46 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
     }
   }
 
+  /// Sama seperti tombol logout di waiting_rombel_screen.dart (step 3) --
+  /// "back" di sini secara arsitektur SAMA DENGAN logout, karena token
+  /// akses sudah didapat sejak login. Selama token masih ada, router
+  /// (app_router.dart) akan selalu memaksa balik ke step onboarding yang
+  /// sesuai, jadi tombol back "ke step sebelumnya" saja tidak akan
+  /// pernah kepakai. Makanya di sini "back" = "kembali ke halaman login",
+  /// bukan back antar-step.
+  Future<void> _confirmBackToLogin() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Kembali ke Login?'),
+        content: const Text(
+          'Data yang belum kamu simpan di form ini akan hilang. '
+              'Kamu tetap bisa login lagi kapan saja dan melanjutkan dari sini.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Batal')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ya, Kembali')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    const storage = FlutterSecureStorage();
+    await storage.delete(key: 'access_token');
+    await storage.delete(key: 'user_role');
+    await storage.delete(key: 'profile_completed');
+    await storage.delete(key: 'face_enrolled');
+    await storage.delete(key: 'assigned_to_rombel');
+    ref.invalidate(profileProvider);
+    ref.invalidate(semuaJadwalProvider);
+    ref.invalidate(jadwalHariIniProvider);
+    ref.invalidate(sesiHariIniProvider);
+    ref.invalidate(sesiHariIniDenganPresensiProvider);
+    ref.invalidate(riwayatPresensiProvider);
+    if (mounted) context.go('/login');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -57,7 +102,12 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
         title: const Text('Lengkapi Profil'),
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false, // tidak boleh di-skip / back
+        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          tooltip: 'Kembali ke Login',
+          onPressed: _confirmBackToLogin,
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),

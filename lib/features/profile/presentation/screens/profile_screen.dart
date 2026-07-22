@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../providers/profile_provider.dart';
+import '../../../jadwal/providers/jadwal_provider.dart';
+import '../../../sesi_kelas/providers/sesi_provider.dart';
+import '../../../riwayat_presensi/providers/riwayat_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -164,7 +167,7 @@ class ProfileScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () => _showLogoutDialog(context),
+                onPressed: () => _showLogoutDialog(context, ref),
                 icon: const Icon(Icons.logout),
                 label: const Text(
                   'Keluar Akun',
@@ -220,7 +223,7 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _showLogoutDialog(BuildContext context) {
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -241,6 +244,24 @@ class ProfileScreen extends ConsumerWidget {
               const storage = FlutterSecureStorage();
               await storage.delete(key: 'access_token');
               await storage.delete(key: 'user_role');
+              await storage.delete(key: 'profile_completed');
+              await storage.delete(key: 'face_enrolled');
+              await storage.delete(key: 'assigned_to_rombel');
+
+              // PENTING (ini akar masalah "logout mahasiswa, login dosen,
+              // tapi profile masih nunjukin data mahasiswa"): provider2 ini
+              // BUKAN autoDispose, jadi hasil fetch-nya nyangkut terus di
+              // memori Riverpod walau sudah logout -- login berikutnya
+              // (role apapun) bakal baca ulang hasil lama itu tanpa nembak
+              // API lagi, sampai widget yang nampilinnya di-rebuild dari
+              // nol. Invalidate manual di sini supaya data user lama
+              // benar-benar dibuang saat logout, bukan cuma token-nya.
+              ref.invalidate(profileProvider);
+              ref.invalidate(semuaJadwalProvider);
+              ref.invalidate(jadwalHariIniProvider);
+              ref.invalidate(sesiHariIniProvider);
+              ref.invalidate(sesiHariIniDenganPresensiProvider);
+              ref.invalidate(riwayatPresensiProvider);
 
               if (context.mounted) {
                 context.go('/login');

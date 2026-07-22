@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../profile/providers/profile_provider.dart';
+import '../../../jadwal/providers/jadwal_provider.dart';
+import '../../../sesi_kelas/providers/sesi_provider.dart';
+import '../../../riwayat_presensi/providers/riwayat_provider.dart';
 
 /// Selaras dengan ProfileScreen milik mahasiswa (avatar inisial, badge role,
 /// section-section berbentuk Card), warna aksen oranye untuk role dosen.
@@ -138,7 +141,7 @@ class LecturerProfileScreen extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                onPressed: () => _showLogoutDialog(context),
+                onPressed: () => _showLogoutDialog(context, ref),
                 icon: const Icon(Icons.logout),
                 label: const Text(
                   'Keluar Akun',
@@ -192,7 +195,7 @@ class LecturerProfileScreen extends ConsumerWidget {
     );
   }
 
-  void _showLogoutDialog(BuildContext context) {
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -213,6 +216,20 @@ class LecturerProfileScreen extends ConsumerWidget {
               const storage = FlutterSecureStorage();
               await storage.delete(key: 'access_token');
               await storage.delete(key: 'user_role');
+              await storage.delete(key: 'profile_completed');
+              await storage.delete(key: 'face_enrolled');
+              await storage.delete(key: 'assigned_to_rombel');
+
+              // Sama seperti ProfileScreen milik mahasiswa: providernya
+              // bukan autoDispose, jadi harus dibuang manual saat logout
+              // supaya login berikutnya (role apapun) tidak baca data
+              // basi dari sesi sebelumnya.
+              ref.invalidate(profileProvider);
+              ref.invalidate(semuaJadwalProvider);
+              ref.invalidate(jadwalHariIniProvider);
+              ref.invalidate(sesiHariIniProvider);
+              ref.invalidate(sesiHariIniDenganPresensiProvider);
+              ref.invalidate(riwayatPresensiProvider);
 
               if (context.mounted) {
                 context.go('/login');
