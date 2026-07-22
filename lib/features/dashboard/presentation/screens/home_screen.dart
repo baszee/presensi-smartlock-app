@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../sesi_kelas/data/sesi_model.dart';
 import '../../../sesi_kelas/providers/sesi_provider.dart';
+import '../../../riwayat_presensi/providers/riwayat_provider.dart';
 import '../../../presensi/presentation/screens/presensi_flow_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -10,7 +11,11 @@ class HomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final sesiAsync = ref.watch(sesiHariIniProvider);
+    // PENTING: pakai provider gabungan, bukan sesiHariIniProvider mentah --
+    // backend tidak menghitung sudah_presensi/waktu_presensi per sesi sama
+    // sekali, jadi ini yang men-derive-nya di mobile dari riwayat-presensi
+    // (lihat sesi_provider.dart).
+    final sesiAsync = ref.watch(sesiHariIniDenganPresensiProvider);
     final currentMockHeader = ref.watch(mockSesiHeaderProvider);
 
     return Scaffold(
@@ -61,7 +66,11 @@ class HomeScreen extends ConsumerWidget {
 
           return RefreshIndicator(
             onRefresh: () async {
-              return ref.refresh(sesiHariIniProvider.future);
+              // Refresh sumber datanya (sesi mentah + riwayat), lalu provider
+              // gabungan otomatis kebaca ulang lewat ref.watch di atas.
+              ref.invalidate(sesiHariIniProvider);
+              ref.invalidate(riwayatPresensiProvider);
+              return ref.refresh(sesiHariIniDenganPresensiProvider.future);
             },
             child: ListView(
               padding: const EdgeInsets.all(16),

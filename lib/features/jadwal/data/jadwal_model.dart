@@ -1,6 +1,6 @@
 class Jadwal {
   final String id; // 1. Ubah jadi String karena Postman mengirim "jadwal-uuid-..."
-  final String mataKuliah;
+  final String namaRombel; // sebelumnya "mataKuliah" -- lihat catatan di fromJson
   final String jamMulai;
   final String jamSelesai;
   final String ruanganId;
@@ -10,7 +10,7 @@ class Jadwal {
 
   Jadwal({
     required this.id,
-    required this.mataKuliah,
+    required this.namaRombel,
     required this.jamMulai,
     required this.jamSelesai,
     required this.ruanganId,
@@ -42,8 +42,12 @@ class Jadwal {
       // Parsing aman untuk String id
       id: json['id']?.toString() ?? '',
 
-      // Jika backend tidak mengirim mata kuliah, kita kasih nilai default
-      mataKuliah: json['mata_kuliah'] ?? 'Mata Kuliah (Data Kosong)',
+      // PENTING (dari audit source code backend, Jadwal model + migration
+      // rombel): tidak ada kolom/konsep "mata_kuliah" sama sekali di
+      // manapun -- sistem ini didesain seputar "Rombel" (rombongan
+      // belajar). Nama-nya ada di relasi "rombel.nama_rombel", bukan rata
+      // di jadwal itu sendiri.
+      namaRombel: json['rombel']?['nama_rombel'] ?? 'Rombel (Data Kosong)',
 
       jamMulai: json['jam_mulai'] ?? '-',
       jamSelesai: json['jam_selesai'] ?? '-',
@@ -52,7 +56,16 @@ class Jadwal {
       ruanganId: json['ruangan']?['id']?.toString() ?? '',
       namaRuangan: json['ruangan']?['nama_ruangan'] ?? '-',
 
-      namaDosen: json['nama_dosen'] ?? 'Dosen Belum Ditentukan',
+      // PENTING: endpoint GET /mobile/mahasiswa/jadwal (lihat
+      // MobileMahasiswaController::jadwal) HANYA eager-load relasi
+      // "rombel" & "ruangan" -- TIDAK ada "dosenPic" sama sekali, dan
+      // rombel itu sendiri cuma expose "id"+"nama_rombel" (dosen_pic_id
+      // memang ada tapi raw FK, tanpa nama). Jadi field ini SELALU
+      // fallback ke default di bawah untuk saat ini -- backend belum
+      // menyediakan nama dosen di endpoint ini. Perlu diminta ke backend
+      // dev untuk nambahin eager-load 'rombel.dosenPic' kalau nama dosen
+      // memang mau ditampilkan di layar jadwal mahasiswa.
+      namaDosen: json['nama_dosen'] ?? json['rombel']?['dosen_pic']?['profil_dosen']?['nama_lengkap'] ?? 'Dosen Belum Ditentukan',
 
       hari: parsedHari,
     );

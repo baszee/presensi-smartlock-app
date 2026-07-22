@@ -109,7 +109,7 @@ class LecturerJadwalScreen extends ConsumerWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('Belum Ada Data Pertemuan'),
           content: Text(
-            'Belum ada data pertemuan (sesi) untuk "${jadwal.mataKuliah}" yang bisa diambil dari server saat ini. '
+            'Belum ada data pertemuan (sesi) untuk "${jadwal.namaRombel}" yang bisa diambil dari server saat ini. '
                 'Reschedule/batalkan hanya bisa dilakukan untuk pertemuan yang datanya sudah tersedia.',
           ),
           actions: [
@@ -136,7 +136,7 @@ class LecturerJadwalScreen extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(jadwal.mataKuliah, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(jadwal.namaRombel, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 4),
               Text('${jadwal.namaRuangan} • Pertemuan tanggal ${sesi.tanggal}', style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 24),
@@ -192,8 +192,65 @@ class LecturerJadwalScreen extends ConsumerWidget {
 
     if (picked == null || !context.mounted) return;
 
-    await ref.read(sesiDosenActionProvider.notifier).reschedule(sesi.id, picked);
+    // PENTING (audit backend, DosenSessionController::update): field
+    // "catatan" WAJIB diisi -- tanpa ini request selalu 422. Minta
+    // keterangan dulu sebelum menembak API.
+    final catatan = await _promptCatatan(
+      context,
+      title: 'Keterangan Penjadwalan Ulang',
+      hint: 'Contoh: Bentrok kegiatan kampus, digeser ke tanggal berikut.',
+    );
+    if (catatan == null || !context.mounted) return;
+
+    await ref.read(sesiDosenActionProvider.notifier).reschedule(sesi.id, picked, catatan);
     _handleActionResult(context, ref);
+  }
+
+  /// Dialog input teks wajib, dipakai untuk field "catatan" pada
+  /// reschedule & cancel. Mengembalikan null kalau dibatalkan, atau
+  /// string non-kosong kalau dikonfirmasi (tombol submit disabled kalau
+  /// input masih kosong, biar tidak kirim string kosong ke backend yang
+  /// menolaknya dengan validasi "required").
+  Future<String?> _promptCatatan(
+      BuildContext context, {
+        required String title,
+        required String hint,
+        bool destructive = false,
+      }) {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setState) {
+          final isValid = controller.text.trim().isNotEmpty;
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Text(title),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              maxLength: 1000,
+              maxLines: 3,
+              decoration: InputDecoration(hintText: hint, border: const OutlineInputBorder()),
+              onChanged: (_) => setState(() {}),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+              ),
+              ElevatedButton(
+                style: destructive
+                    ? ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white)
+                    : null,
+                onPressed: isValid ? () => Navigator.pop(ctx, controller.text.trim()) : null,
+                child: const Text('Lanjut'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   void _confirmCancel(BuildContext context, WidgetRef ref, Sesi sesi) {
@@ -211,7 +268,17 @@ class LecturerJadwalScreen extends ConsumerWidget {
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () async {
               Navigator.pop(ctx);
-              await ref.read(sesiDosenActionProvider.notifier).cancel(sesi.id);
+              // PENTING (audit backend, DosenSessionController::cancel):
+              // field wajibnya "catatan" (bukan "alasan"), dan wajib diisi.
+              final catatan = await _promptCatatan(
+                context,
+                title: 'Alasan Pembatalan',
+                hint: 'Contoh: Dosen berhalangan hadir.',
+                destructive: true,
+              );
+              if (catatan == null || !context.mounted) return;
+
+              await ref.read(sesiDosenActionProvider.notifier).cancel(sesi.id, catatan: catatan);
               _handleActionResult(context, ref);
             },
             child: const Text('Ya, Batalkan'),

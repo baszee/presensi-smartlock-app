@@ -15,16 +15,12 @@ class SesiDosenActionNotifier extends StateNotifier<SesiActionState> {
   final Dio _dio;
   SesiDosenActionNotifier(this._dio) : super(SesiActionState(status: SesiActionStatus.initial));
 
-  /// Reschedule SATU pertemuan, sesuai API_CONTRACT2.md bagian 7:
-  /// PATCH /mobile/dosen/sesi/{sesi}.
+  /// Reschedule SATU pertemuan: PATCH /mobile/dosen/sesi/{sesi}.
   ///
-  /// CATATAN: nama field body ("tanggal") ini tebakan terbaik -- kontrak
-  /// belum kasih contoh JSON persis untuk endpoint ini (cuma dijelaskan
-  /// naratif: "geser 1 pertemuan itu saja, harus dalam periode semester,
-  /// ditolak jika ruangan bentrok"). Kalau nanti pas hookup ke backend
-  /// asli field-nya beda nama, cukup ganti key di sini -- UI tidak perlu
-  /// diubah.
-  Future<void> reschedule(String sesiId, DateTime tanggalBaru) async {
+  /// PENTING (dari audit source code backend, DosenSessionController::
+  /// update): field "catatan" itu WAJIB (required, string, max 1000) --
+  /// bukan opsional. Tanpa ini request selalu 422.
+  Future<void> reschedule(String sesiId, DateTime tanggalBaru, String catatan) async {
     state = SesiActionState(status: SesiActionStatus.loading);
     try {
       final tanggalStr = '${tanggalBaru.year.toString().padLeft(4, '0')}-'
@@ -33,7 +29,7 @@ class SesiDosenActionNotifier extends StateNotifier<SesiActionState> {
 
       final response = await _dio.patch(
         '/mobile/dosen/sesi/$sesiId',
-        data: {'tanggal': tanggalStr},
+        data: {'tanggal': tanggalStr, 'catatan': catatan},
         options: Options(headers: {if (AppConfig.useMockBackend) 'x-mock-response-name': 'Reschedule Sesi'}),
       );
 
@@ -51,13 +47,18 @@ class SesiDosenActionNotifier extends StateNotifier<SesiActionState> {
     }
   }
 
-  /// Batalkan SATU pertemuan, sesuai POST /mobile/dosen/sesi/{sesi}/cancel.
-  Future<void> cancel(String sesiId, {String? alasan}) async {
+  /// Batalkan SATU pertemuan: POST /mobile/dosen/sesi/{sesi}/cancel.
+  ///
+  /// PENTING (dari audit source code backend, DosenSessionController::
+  /// cancel): field wajibnya "catatan" (required, string, max 1000) --
+  /// BUKAN "alasan" seperti tebakan sebelumnya. Nama field yang salah ini
+  /// yang bikin cancel selalu gagal 422.
+  Future<void> cancel(String sesiId, {required String catatan}) async {
     state = SesiActionState(status: SesiActionStatus.loading);
     try {
       final response = await _dio.post(
         '/mobile/dosen/sesi/$sesiId/cancel',
-        data: {if (alasan != null && alasan.isNotEmpty) 'alasan': alasan},
+        data: {'catatan': catatan},
         options: Options(headers: {if (AppConfig.useMockBackend) 'x-mock-response-name': 'Cancel Sesi'}),
       );
 

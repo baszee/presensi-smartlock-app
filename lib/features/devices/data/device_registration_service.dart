@@ -46,11 +46,19 @@ class DeviceRegistrationService {
         await _storage.write(key: 'device_public_id', value: devicePublicId);
       }
 
-      final platform = Platform.isIOS ? 'ios' : 'android';
+      // PENTING (dari audit source code backend, MobileDeviceController::
+      // store): validasi field "platform" adalah 'in:android' -- backend
+      // ini SATU-SATUNYA menerima nilai "android", TIDAK ada dukungan
+      // "ios" sama sekali. Kalau app ini pernah dijalankan di iOS,
+      // pendaftaran device akan selalu 422. Selama backend belum
+      // ditambah opsi lain, kita paksa kirim "android" supaya konsisten
+      // dengan device_name yang tetap bisa membedakan platform aslinya.
+      final actualPlatform = Platform.isIOS ? 'ios' : 'android';
+      const platform = 'android';
 
       final response = await dio.post('/mobile/devices', data: {
         'device_public_id': devicePublicId,
-        'device_name': '$platform Device',
+        'device_name': '$actualPlatform Device',
         'platform': platform,
         'nfc_supported': nfcSupported,
       });

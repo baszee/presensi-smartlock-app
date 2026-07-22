@@ -125,12 +125,17 @@ class _PresensiFlowScreenState extends ConsumerState<PresensiFlowScreen> {
       final response = await dio.post('/mobile/mahasiswa/face/verify', data: formData);
       final data = response.data;
 
-      // Nama field token belum 100% dikonfirmasi backend -- coba beberapa
-      // kemungkinan supaya tidak gampang patah kalau beda sedikit.
-      final token = data['face_verification_token'] ?? data['token'] ?? data['data']?['face_verification_token'];
+      // PENTING (dari audit source code backend, FaceRecognitionController::
+      // verificationResponse): key-nya "verification_token", dibungkus di
+      // dalam "data", BUKAN "face_verification_token"/"token" di level atas
+      // seperti yang ditebak sebelumnya. Field "face_verification_token"
+      // dipakai lagi nanti sebagai NAMA PAYLOAD saat submit ke
+      // /mobile/mahasiswa/presensi (lihat _submitPresensi di bawah) -- dua
+      // hal berbeda meski isinya sama (id verifikasi).
+      final token = data['data']?['verification_token'];
 
       if (token == null) {
-        throw 'Respons verifikasi wajah tidak berisi token.';
+        throw 'Respons verifikasi wajah tidak berisi token (wajah mungkin tidak cocok / ditolak).';
       }
 
       _faceVerificationToken = token.toString();
