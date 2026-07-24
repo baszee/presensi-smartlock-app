@@ -32,6 +32,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> loginWithGoogle() async {
+    state = AuthState.loading();
+    try {
+      await _repository.loginWithGoogle();
+      state = AuthState.success();
+    } catch (e) {
+      // Kalau user cancel dialog Google, balikin ke initial (bukan error)
+      // biar nggak muncul snackbar merah nakut-nakutin buat aksi yang
+      // sebenarnya normal (user emang sengaja batal pilih akun).
+      if (e.toString().contains('dibatalkan')) {
+        state = AuthState.initial();
+      } else {
+        state = AuthState.error(e.toString());
+      }
+    }
+  }
+
   Future<void> logout() async {
     await _repository.logout();
     state = AuthState.initial();

@@ -43,6 +43,7 @@ dependencies:
 
   # Networking
   dio: ^5.4.3
+  google_sign_in: ^6.2.1
 
   # Storage
   flutter_secure_storage: ^10.3.1

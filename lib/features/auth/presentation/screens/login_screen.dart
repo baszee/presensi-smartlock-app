@@ -131,6 +131,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
               ),
 
+              const SizedBox(height: 16),
+              const Row(
+                children: [
+                  Expanded(child: Divider()),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 8),
+                    child: Text('atau'),
+                  ),
+                  Expanded(child: Divider()),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // --- TOMBOL LOGIN GOOGLE ---
+              // Dialog pilih akun-nya SELALU beneran (bukan mock), tapi
+              // hasil verifikasi ke backend ikut aturan mock/asli seperti
+              // biasa (lihat AuthRepository.loginWithGoogle).
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    ref.read(authProvider.notifier).loginWithGoogle();
+                  },
+                  icon: const Icon(Icons.g_mobiledata, size: 28),
+                  label: const Text('Login dengan Google'),
+                ),
+              ),
+
               const SizedBox(height: 32),
               const Divider(),
 

@@ -107,6 +107,45 @@ class FakeBackendInterceptor extends Interceptor {
     final path = options.path;
     final method = options.method.toUpperCase();
 
+    // 0. LOGIN GOOGLE -- popup pilih akun Google di Flutter SELALU beneran
+    // (nggak bisa di-mock, itu punya Google). Yang dicegat di sini cuma
+    // langkah VERIFIKASI idToken ke backend -- supaya kamu nggak perlu
+    // nunggu Client ID Web + backend asli hidup buat nge-tes alur UI-nya.
+    // Bentuk response WAJIB sama dengan AuthController::google (status
+    // 200, {status,data:{access_token,user,onboarding}}), user selalu
+    // dianggap mahasiswa baru (profil masih kosong, biar keliatan realistis
+    // sama seperti akun Google yang baru pertama kali daftar).
+    if (path.contains('/auth/google') && method == 'POST') {
+      final body = options.data as Map<String, dynamic>? ?? {};
+      final googleEmail = body['google_email'] ?? 'akun.google@gmail.com';
+      final googleName = body['google_name'] ?? 'Pengguna Google';
+
+      final userData = _defaultUser();
+      userData['id'] = 'mock-google-${DateTime.now().millisecondsSinceEpoch}';
+      userData['profile_id'] = 'mock-profile-google-${DateTime.now().millisecondsSinceEpoch}';
+      userData['email'] = googleEmail;
+      // Nama dari Google dipakai duluan (biar kerasa "beneran" akunnya),
+      // tapi field akademik (nim, program_studi, dst) tetap kosong --
+      // sama seperti user baru asli via Google di backend (lihat
+      // AuthController::google: ProfilMahasiswa::create kosong tanpa nim).
+      userData['nama_lengkap'] = googleName;
+      _saveUser(userData);
+      await _secureStorage.write(key: 'user_role', value: 'mahasiswa');
+
+      return handler.resolve(Response(
+        requestOptions: options,
+        statusCode: 200,
+        data: {
+          'status': 'success',
+          'data': {
+            'access_token': 'fake_token_google_${DateTime.now().millisecondsSinceEpoch}',
+            'user': _userJson(userData),
+            'onboarding': _onboardingJson(userData),
+          },
+        },
+      ));
+    }
+
     // 1. REGISTER MAHASISWA -- path eksplisit /mahasiswa/, aman untuk dosen.
     // Bentuk PERSIS AuthController::registerMahasiswa (status 201, envelope
     // {status,message,data:{access_token,user,onboarding}}).
