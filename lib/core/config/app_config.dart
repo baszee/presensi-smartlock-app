@@ -6,5 +6,5 @@
 ///           dihapus, cuma dimatikan -- tinggal balikin ke true lagi
 ///           kalau backend lagi down dan kamu mau demo pakai mock.
 class AppConfig {
-  static const bool useMockBackend = false;
+  static const bool useMockBackend = true;
 }

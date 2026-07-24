@@ -5,9 +5,21 @@ import '../../../sesi_kelas/data/sesi_model.dart';
 import '../../../sesi_kelas/providers/sesi_provider.dart';
 import '../../../riwayat_presensi/providers/riwayat_provider.dart';
 import '../../../presensi/presentation/screens/presensi_flow_screen.dart';
+import '../../../profile/providers/profile_provider.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_card.dart';
+import '../../../../core/widgets/status_chip.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
+
+  String _greeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 11) return 'Selamat Pagi';
+    if (hour < 15) return 'Selamat Siang';
+    if (hour < 18) return 'Selamat Sore';
+    return 'Selamat Malam';
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -17,77 +29,113 @@ class HomeScreen extends ConsumerWidget {
     // (lihat sesi_provider.dart).
     final sesiAsync = ref.watch(sesiHariIniDenganPresensiProvider);
     final currentMockHeader = ref.watch(mockSesiHeaderProvider);
+    final profileAsync = ref.watch(profileProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Beranda'),
-        actions: [
-          // Tombol dev buat gonta-ganti Example Postman -- hapus nanti
-          // begitu sudah pindah ke backend asli.
-          IconButton(
-            icon: const Icon(Icons.developer_mode),
-            tooltip: 'Ganti Status Sesi (Mock)',
-            onPressed: () {
-              final newState = currentMockHeader == 'Sesi Aktif - Belum Presensi'
-                  ? 'Sesi Aktif - Sudah Presensi'
-                  : 'Sesi Aktif - Belum Presensi';
-              ref.read(mockSesiHeaderProvider.notifier).state = newState;
-            },
-          ),
-        ],
-      ),
-      body: sesiAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Gagal memuat: $error')),
-        data: (sesiList) {
-          if (sesiList.isEmpty) {
-            return const Center(
-              child: Text(
-                'Tidak ada kelas hari ini,\nnikmati harimu! 🎉',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            // Refresh sumber datanya (sesi mentah + riwayat), lalu provider
+            // gabungan otomatis kebaca ulang lewat ref.watch di atas.
+            ref.invalidate(sesiHariIniProvider);
+            ref.invalidate(riwayatPresensiProvider);
+            ref.invalidate(profileProvider);
+            return ref.refresh(sesiHariIniDenganPresensiProvider.future);
+          },
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xxl),
+            children: [
+              // --- Greeting ---
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${_greeting()}, ${profileAsync.valueOrNull?.namaLengkap.split(' ').first ?? 'Mahasiswa'}',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Siap untuk sesi akademik hari ini?',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Tombol dev buat gonta-ganti Example Postman -- hapus nanti
+                  // begitu sudah pindah ke backend asli.
+                  IconButton(
+                    icon: const Icon(Icons.developer_mode, size: 20),
+                    tooltip: 'Ganti Status Sesi (Mock)',
+                    color: AppColors.textSecondary,
+                    onPressed: () {
+                      final newState = currentMockHeader == 'Sesi Aktif - Belum Presensi'
+                          ? 'Sesi Aktif - Sudah Presensi'
+                          : 'Sesi Aktif - Belum Presensi';
+                      ref.read(mockSesiHeaderProvider.notifier).state = newState;
+                    },
+                  ),
+                ],
               ),
-            );
-          }
+              const SizedBox(height: AppSpacing.xl),
 
-          // Cari sesi yang BENERAN berjalan -- jangan fallback diam-diam
-          // ke sesi lain lalu dipaksa dikasih badge "Berjalan".
-          Sesi? sesiBerjalan;
-          for (final s in sesiList) {
-            if (s.status == 'berjalan') {
-              sesiBerjalan = s;
-              break;
-            }
-          }
-
-          // Kalau tidak ada yang berjalan, ambil sesi paling awal sebagai
-          // info pasif "sesi berikutnya" (sesuai Flow_Navigasi.md 1.2 Tab 1).
-          final sesiBerikutnya = sesiBerjalan == null ? sesiList.first : null;
-
-          return RefreshIndicator(
-            onRefresh: () async {
-              // Refresh sumber datanya (sesi mentah + riwayat), lalu provider
-              // gabungan otomatis kebaca ulang lewat ref.watch di atas.
-              ref.invalidate(sesiHariIniProvider);
-              ref.invalidate(riwayatPresensiProvider);
-              return ref.refresh(sesiHariIniDenganPresensiProvider.future);
-            },
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Text(
-                  sesiBerjalan != null ? 'Sesi Berjalan' : 'Sesi Berikutnya',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              // --- Hero Card: sesi hari ini ---
+              sesiAsync.when(
+                loading: () => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.xxl),
+                  child: Center(child: CircularProgressIndicator(color: AppColors.navy)),
                 ),
-                const SizedBox(height: 12),
-                if (sesiBerjalan != null)
-                  _SesiAktifCard(sesi: sesiBerjalan)
-                else if (sesiBerikutnya != null)
-                  _SesiPasifCard(sesi: sesiBerikutnya),
-              ],
-            ),
-          );
-        },
+                error: (error, stack) => AppCard(
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline, color: AppColors.danger),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(child: Text('Gagal memuat: $error', style: Theme.of(context).textTheme.bodySmall)),
+                    ],
+                  ),
+                ),
+                data: (sesiList) {
+                  if (sesiList.isEmpty) {
+                    return const _EmptyTodayCard();
+                  }
+
+                  // Cari sesi yang BENERAN berjalan -- jangan fallback diam-diam
+                  // ke sesi lain lalu dipaksa dikasih badge "Berjalan".
+                  Sesi? sesiBerjalan;
+                  for (final s in sesiList) {
+                    if (s.status == 'berjalan') {
+                      sesiBerjalan = s;
+                      break;
+                    }
+                  }
+
+                  // Kalau tidak ada yang berjalan, ambil sesi paling awal sebagai
+                  // info pasif "sesi berikutnya" (sesuai Flow_Navigasi.md 1.2 Tab 1).
+                  final sesiBerikutnya = sesiBerjalan == null ? sesiList.first : null;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        sesiBerjalan != null ? 'SESI BERJALAN' : 'SESI BERIKUTNYA',
+                        style: Theme.of(context).textTheme.labelSmall,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      if (sesiBerjalan != null)
+                        _SesiAktifCard(sesi: sesiBerjalan)
+                      else if (sesiBerikutnya != null)
+                        _SesiPasifCard(sesi: sesiBerikutnya),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -102,93 +150,70 @@ class _SesiAktifCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isHadir = sesi.sudahPresensi;
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: isHadir ? Colors.green : Colors.grey.shade300,
-          width: isHadir ? 2 : 1,
-        ),
-      ),
-      color: isHadir ? Colors.green.shade50 : Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    sesi.namaRuangan,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Berjalan',
-                    style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
-                const SizedBox(width: 6),
-                Text(sesi.tanggal, style: const TextStyle(color: Colors.grey)),
-              ],
-            ),
-            const SizedBox(height: 20),
-            if (isHadir)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Center(
-                  child: Text(
-                    '✅ Hadir (${sesi.waktuPresensi ?? "-"})',
-                    style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-              )
-            else
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  icon: const Icon(Icons.fingerprint),
-                  label: const Text('Presensi Sekarang', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  onPressed: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => PresensiFlowScreen(sesi: sesi),
-                        fullscreenDialog: true,
-                      ),
-                    );
-                  },
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  sesi.namaRuangan,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-          ],
-        ),
+              const SizedBox(width: AppSpacing.sm),
+              StatusChip(
+                label: isHadir ? 'Sudah Presensi' : 'Berjalan',
+                type: isHadir ? StatusType.success : StatusType.info,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.textSecondary),
+              const SizedBox(width: AppSpacing.xs),
+              Text(sesi.tanggal, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          if (isHadir)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.successBg,
+                borderRadius: AppRadius.smallAll,
+              ),
+              child: Center(
+                child: Text(
+                  'Hadir (${sesi.waktuPresensi ?? "-"})',
+                  style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.w700, fontSize: 15),
+                ),
+              ),
+            )
+          else
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.fingerprint, size: 20),
+                label: const Text('Presensi Sekarang'),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PresensiFlowScreen(sesi: sesi),
+                      fullscreenDialog: true,
+                    ),
+                  );
+                },
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -202,53 +227,61 @@ class _SesiPasifCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: Colors.grey.shade300),
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  sesi.namaRuangan,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              StatusChip(label: sesi.status, type: StatusType.neutral),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
+            children: [
+              const Icon(Icons.calendar_today_outlined, size: 14, color: AppColors.textSecondary),
+              const SizedBox(width: AppSpacing.xs),
+              Text(sesi.tanggal, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Tombol presensi akan aktif begitu sesi ini berjalan.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    sesi.namaRuangan,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    sesi.status,
-                    style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.calendar_today, size: 14, color: Colors.grey),
-                const SizedBox(width: 6),
-                Text(sesi.tanggal, style: const TextStyle(color: Colors.grey)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Tombol presensi akan aktif begitu sesi ini berjalan.',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
-            ),
-          ],
-        ),
+    );
+  }
+}
+
+/// Empty state -- ikuti pola MD: Icon -> Title -> Description.
+class _EmptyTodayCard extends StatelessWidget {
+  const _EmptyTodayCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppCard(
+      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxxl, horizontal: AppSpacing.lg),
+      child: Column(
+        children: [
+          const Icon(Icons.event_available_outlined, size: 36, color: AppColors.textSecondary),
+          const SizedBox(height: AppSpacing.md),
+          Text('Tidak Ada Kelas Hari Ini', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Nikmati harimu, jadwal berikutnya bisa dicek di tab Jadwal.',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 // --- IMPORTS ---
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/splash/presentation/screens/splash_screen.dart';
 import '../main_shell.dart'; // Shell untuk Mahasiswa
 import '../../features/lecturer_dashboard/presentation/screens/lecturer_shell.dart'; // Shell untuk Dosen
 import '../../features/onboarding/presentation/screens/complete_profile_screen.dart';
@@ -20,12 +21,18 @@ const _onboardingPaths = [
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/login',
+    initialLocation: '/splash',
     redirect: (context, state) async {
+      final currentPath = state.matchedLocation;
+
+      // Splash yang atur timing-nya sendiri (lihat splash_screen.dart) --
+      // dia yang nanti manggil context.go('/login'), baru redirect di
+      // bawah ini yang tentuin tujuan akhir sebenarnya (login/home/dst).
+      if (currentPath == '/splash') return null;
+
       const storage = FlutterSecureStorage();
       final token = await storage.read(key: 'access_token');
       final role = await storage.read(key: 'user_role');
-      final currentPath = state.matchedLocation;
       final isGoingToLogin = currentPath == '/login';
 
       // Belum login -> paksa ke /login, kecuali memang sudah di situ.
@@ -72,6 +79,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),

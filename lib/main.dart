@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 // Import file router yang sudah kita buat sebelumnya
 import 'app/router/app_router.dart';
+import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,10 +31,7 @@ class MyApp extends ConsumerWidget {
     return MaterialApp.router(
       title: 'Dsolve Smart Lock',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light,
       routerConfig: router,
     );
   }

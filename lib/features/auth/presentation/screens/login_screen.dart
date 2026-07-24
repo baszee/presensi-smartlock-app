@@ -8,6 +8,8 @@ import '../../providers/auth_provider.dart';
 import '../../../devices/data/device_registration_service.dart';
 import '../../../../core/network/dio_provider.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/google_mark.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -17,7 +19,6 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  // Tambahkan controller untuk menangkap ketikan keyboard
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -27,6 +28,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _submitLogin() {
+    if (_emailController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
+      ref.read(authProvider.notifier).login(
+        _emailController.text.trim(),
+        _passwordController.text.trim(),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email dan Password wajib diisi!')),
+      );
+    }
   }
 
   @override
@@ -58,129 +72,146 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(next.errorMessage ?? 'Login Gagal'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.danger,
           ),
         );
       }
     });
 
     final authState = ref.watch(authProvider);
+    final isLoading = authState.status == AuthStatus.loading;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Smart Lock Login')),
-      body: Center(
-        child: authState.status == AuthStatus.loading
-            ? const CircularProgressIndicator()
-            : Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // --- FORM LOGIN SUNGGUHAN ---
-              TextField(
-                controller: _emailController,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.email),
-                ),
-                keyboardType: TextInputType.emailAddress,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _passwordController,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  border: const OutlineInputBorder(),
-                  prefixIcon: const Icon(Icons.lock),
-                  // Tombol mata: tap buat toggle lihat/sembunyiin password
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                    ),
-                    onPressed: () {
-                      setState(() {
-                        _obscurePassword = !_obscurePassword;
-                      });
-                    },
-                  ),
-                ),
-                obscureText: _obscurePassword,
-              ),
-              const SizedBox(height: 24),
-
-              // --- TOMBOL LOGIN UTAMA ---
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // Pastikan tidak kosong sebelum menembak API
-                    if (_emailController.text.isNotEmpty && _passwordController.text.isNotEmpty) {
-                      ref.read(authProvider.notifier).login(
-                        _emailController.text.trim(),
-                        _passwordController.text.trim(),
-                      );
-                    } else {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Email dan Password wajib diisi!')),
-                      );
-                    }
-                  },
-                  child: const Text('Login'),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-              const Row(
+      backgroundColor: AppColors.navy,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            // --- Bagian navy: identity + tagline ---
+            Padding(
+              padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xxl, AppSpacing.xl, AppSpacing.xl),
+              child: Column(
                 children: [
-                  Expanded(child: Divider()),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('atau'),
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: AppColors.navyLight,
+                      borderRadius: AppRadius.smallAll,
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: const Icon(Icons.lock_outline_rounded, color: Colors.white, size: 28),
                   ),
-                  Expanded(child: Divider()),
+                  const SizedBox(height: AppSpacing.lg),
+                  const Text(
+                    'Selamat Datang Kembali',
+                    style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Masuk untuk mengakses presensi\ndan kontrol akses kampus.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.textOnNavyMuted, fontSize: 13, height: 1.4),
+                  ),
                 ],
               ),
-              const SizedBox(height: 16),
+            ),
 
-              // --- TOMBOL LOGIN GOOGLE ---
-              // Dialog pilih akun-nya SELALU beneran (bukan mock), tapi
-              // hasil verifikasi ke backend ikut aturan mock/asli seperti
-              // biasa (lihat AuthRepository.loginWithGoogle).
-              SizedBox(
+            // --- Card putih: form ---
+            Expanded(
+              child: Container(
                 width: double.infinity,
-                height: 50,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    ref.read(authProvider.notifier).loginWithGoogle();
-                  },
-                  icon: const Icon(Icons.g_mobiledata, size: 28),
-                  label: const Text('Login dengan Google'),
+                decoration: const BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(AppRadius.large),
+                    topRight: Radius.circular(AppRadius.large),
+                  ),
+                ),
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator(color: AppColors.navy))
+                    : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(AppSpacing.xl, AppSpacing.xxl, AppSpacing.xl, AppSpacing.xl),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Email atau NIM', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          hintText: 'Masukkan email atau NIM',
+                          prefixIcon: Icon(Icons.mail_outline, size: 20),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      Text('Password', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: AppSpacing.sm),
+                      TextField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          hintText: '••••••••',
+                          prefixIcon: const Icon(Icons.lock_outline, size: 20),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                              size: 20,
+                            ),
+                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      ElevatedButton(
+                        onPressed: _submitLogin,
+                        child: const Text('Masuk'),
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+                            child: Text(
+                              'atau lanjut dengan',
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      OutlinedButton.icon(
+                        onPressed: () => ref.read(authProvider.notifier).loginWithGoogle(),
+                        icon: const GoogleMark(size: 18),
+                        label: const Text('Lanjut dengan Google'),
+                      ),
+                      const SizedBox(height: AppSpacing.xxl),
+                      Center(
+                        child: TextButton(
+                          onPressed: () async {
+                            final box = Hive.box('mock_db_box');
+                            await box.clear();
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Data Onboarding Hive dibersihkan!')),
+                              );
+                            }
+                          },
+                          child: Text(
+                            'Reset Data Lokal (Testing)',
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-
-              const SizedBox(height: 32),
-              const Divider(),
-
-              // --- TOMBOL RESET HIVE (Untuk kemudahan testing) ---
-              TextButton(
-                onPressed: () async {
-                  final box = Hive.box('mock_db_box');
-                  await box.clear();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Data Onboarding Hive dibersihkan!')),
-                    );
-                  }
-                },
-                child: const Text(
-                  'Reset Data Lokal (Testing)',
-                  style: TextStyle(color: Colors.red),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
